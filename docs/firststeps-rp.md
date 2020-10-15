@@ -160,6 +160,32 @@ backend mailcow
   http-request set-header X-Forwarded-Proto http if !{ ssl_fc }
   server mailcow 127.0.0.1:8080 check
 ```
+# If haproxy is used to frontend multiple websites, the following configuration is confirmed to work, leaving mailcow running on 80 and 443.  Change the ports if you are running on different ports:
+
+frontend http
+    bind :80
+    bind *:443 ssl crt <path to your cert / can be wildcard for domain>
+    redirect scheme https code 301 if !{ ssl_fc } # This redirects http to https
+    mode http
+    
+# <email.server.name> - This is the servername haproxy is looking for in the url
+        acl host_<email.server.name> hdr(host) -i <email.server.name> 
+        use_backend <email.server.name>-http if host_<email.server.name
+        
+frontend <email.server.name>-tcp
+    mode tcp
+    bind :995,:110,:143,:465,:25,:587,:4190,:6379 # This forwards the email server ports
+    default_backend <email.server.name>-tcp
+    
+backend <email.server.name>-tcp
+    mode tcp
+    balance source
+    server <email.server.name> <IP_Address_of_server>
+    
+backend <email.server.name>-http
+ mode http
+ server <email.server.name> <IP_Address_of_server>:443 ssl check inter 1000 verify none
+
 
 ### Traefik v2 (community supported)
 
